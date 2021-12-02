@@ -38,7 +38,7 @@ pub fn part1(input: &[Instruction]) -> usize {
 
 #[aoc(day2, part2)]
 pub fn part2(input: &[Instruction]) -> usize {
-    let (x, y, aim): (usize, usize, usize) =
+    let (x, y, _aim): (usize, usize, usize) =
         input
             .into_iter()
             .fold((0, 0, 0), |acc, instruction| match instruction {
