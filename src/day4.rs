@@ -1,7 +1,69 @@
 #[derive(Debug, Clone)]
 pub struct BingoGame {
     numbers: Vec<usize>,
-    boards: Vec<Vec<Vec<(usize, bool)>>>,
+    boards: Vec<BingoBoard>,
+}
+#[derive(Debug, Clone)]
+struct BingoBoard {
+    has_won: bool,
+    board: Vec<Vec<(usize, bool)>>,
+}
+
+impl BingoBoard {
+    fn iter_mut(&mut self) -> std::slice::IterMut<'_, Vec<(usize, bool)>> {
+        self.board.iter_mut()
+    }
+
+    fn check_for_win(&mut self) -> bool {
+        for i in 0..5 {
+            if (self[i][0].1 && self[i][1].1 && self[i][2].1 && self[i][3].1 && self[i][4].1)
+                || (self[0][i].1 && self[1][i].1 && self[2][i].1 && self[3][i].1 && self[4][i].1)
+            {
+                self.has_won = true;
+                return true;
+            }
+        }
+        return false;
+    }
+
+    fn calc_board_score(&self, number: usize) -> usize {
+        let sum = self.into_iter().fold(0, |acc, row| {
+            acc + row
+                .into_iter()
+                .filter_map(|(num, bool)| match bool {
+                    false => Some(num),
+                    true => None,
+                })
+                .sum::<usize>()
+        });
+        number * sum
+    }
+}
+
+impl FromIterator<Vec<(usize, bool)>> for BingoBoard {
+    fn from_iter<T: IntoIterator<Item = Vec<(usize, bool)>>>(iter: T) -> Self {
+        BingoBoard {
+            has_won: false,
+            board: iter.into_iter().collect(),
+        }
+    }
+}
+
+impl std::ops::Index<usize> for BingoBoard {
+    type Output = Vec<(usize, bool)>;
+
+    fn index(&self, index: usize) -> &Self::Output {
+        &self.board[index]
+    }
+}
+
+impl IntoIterator for &BingoBoard {
+    type Item = Vec<(usize, bool)>;
+    type IntoIter = std::vec::IntoIter<Vec<(usize, bool)>>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.board.clone().into_iter()
+    }
 }
 
 impl BingoGame {
@@ -12,26 +74,17 @@ impl BingoGame {
                     if cell.0 == *number {
                         cell.1 = true;
                     }
-                })
-            })
-        })
+                });
+            });
+            board.check_for_win();
+        });
     }
-    fn check_for_winner(&self) -> Option<&Vec<Vec<(usize, bool)>>> {
-        for board in &self.boards {
-            for i in 0..5 {
-                if board[i][0].1 && board[i][1].1 && board[i][2].1 && board[i][3].1 && board[i][4].1
-                {
-                    println!("{:#?}", board);
-                    return Some(board);
-                }
-                if board[0][i].1 && board[1][i].1 && board[2][i].1 && board[3][i].1 && board[4][i].1
-                {
-                    println!("{:?}", board);
-                    return Some(board);
-                }
+    fn check_for_winner(&mut self) -> Option<usize> {
+        for (index, board) in self.boards.clone().iter_mut().enumerate() {
+            if board.check_for_win() {
+                return Some(index);
             }
         }
-
         return None;
     }
 }
@@ -70,17 +123,8 @@ pub fn part1(game: &BingoGame) -> usize {
     for number in &game.numbers {
         our_game.play(number);
         match our_game.check_for_winner() {
-            Some(board) => {
-                result = number
-                    * board.into_iter().fold(0, |acc, row| {
-                        acc + row
-                            .into_iter()
-                            .filter_map(|(num, bool)| match bool {
-                                false => Some(num),
-                                true => None,
-                            })
-                            .sum::<usize>()
-                    });
+            Some(board_index) => {
+                result = our_game.boards[board_index].calc_board_score(*number);
                 break;
             }
             None => {
@@ -89,4 +133,23 @@ pub fn part1(game: &BingoGame) -> usize {
         }
     }
     return result;
+}
+
+#[aoc(day4, part2)]
+pub fn part2(game: &BingoGame) -> usize {
+    let mut our_game = game.clone();
+    let mut result = 0;
+    for number in &game.numbers {
+        our_game.play(number);
+        if our_game.boards.len() == 1 && our_game.boards[0].has_won {
+            result = our_game.boards[0].calc_board_score(*number);
+            break;
+        }
+        our_game.boards = our_game
+            .boards
+            .into_iter()
+            .filter(|board| !board.has_won)
+            .collect();
+    }
+    result
 }
